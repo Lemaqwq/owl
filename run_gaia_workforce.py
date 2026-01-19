@@ -208,14 +208,14 @@ def construct_workforce() -> OwlGaiaWorkforce:
 
 
 def evaluate_on_gaia():
-    
-    LEVEL = 1
-    on="valid"
+
+    LEVEL = "all"  # 1, 2, 3, or "all"
+    on = "valid"   # "valid" or "test"
     SAVE_RESULT = True
     MAX_TRIES = 3
-    
+
     SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_gpt4o.json"
-    test_idx = [1]
+    test_idx = None  # None for all tasks, or list like [0, 1, 2]
 
     if os.path.exists(f"tmp/"):
         shutil.rmtree(f"tmp/")
