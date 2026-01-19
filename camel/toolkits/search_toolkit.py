@@ -132,8 +132,12 @@ class SearchToolkit(BaseToolkit):
             "rvdir": "newer"
         }
         
+        headers = {
+            "User-Agent": "OWL-CAMEL/1.0 (https://github.com/camel-ai/owl)"
+        }
+
         try:
-            response = requests.get(base_url, params=params)
+            response = requests.get(base_url, params=params, headers=headers)
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"Request error: {e}")

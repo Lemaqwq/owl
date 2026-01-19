@@ -367,23 +367,17 @@ Query:
         app = FirecrawlApp(api_key=api_key)
 
         try:
-            data = app.crawl_url(
-                url,
-                params={
-                'limit': 1,
-                'scrapeOptions': {'formats': ['markdown']}
-            }
-        )
-            
+            data = app.scrape(url, formats=['markdown'])
+
         except Exception as e:
             if '403' in str(e):
                 logger.error(f"Error: {e}")
-                return e
+                return str(e)
             elif "429" in str(e):
                 # too many requests
                 logger.error(f"Error: {e}")
                 raise RuntimeError(f"Error: {e}")
-            
+
             elif "Payment Required" in str(e):
                 logger.error(f"Error: {e}")
                 extracted_text = self._extract_webpage_content_with_html2text(url)
@@ -393,22 +387,20 @@ Query:
                 raise e
 
         logger.debug(f"Extracted data from {url} using firecrawl: {data}")
-        if len(data['data']) == 0:
-            if data['success'] == True:
-                logger.debug(f"Trying to use html2text to get the text.")
-                # try using html2text to get the text
-                extracted_text = self._extract_webpage_content_with_html2text(url)
-                logger.debug(f"The extracted text from html2text is: {extracted_text}")
-                
-                if len(extracted_text) == 0:
-                    return "No content found on the webpage."
-                else:
-                    return extracted_text
 
+        # Handle response - firecrawl v1.0+ returns object with .markdown property
+        markdown_content = getattr(data, 'markdown', None) or data.get('markdown') if isinstance(data, dict) else None
+        if not markdown_content:
+            logger.debug(f"Trying to use html2text to get the text.")
+            extracted_text = self._extract_webpage_content_with_html2text(url)
+            logger.debug(f"The extracted text from html2text is: {extracted_text}")
+
+            if len(extracted_text) == 0:
+                return "No content found on the webpage."
             else:
-                return "Error while crawling the webpage."
+                return extracted_text
 
-        return str(data['data'][0]['markdown'])
+        return str(markdown_content)
     
 
     def _download_file(self, url: str):

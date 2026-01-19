@@ -68,9 +68,11 @@ class Firecrawl:
         """
 
         try:
-            crawl_response = self.app.crawl_url(
+            # firecrawl-py v1.0+ accepts parameters as keyword arguments directly
+            crawl_params = params or {}
+            crawl_response = self.app.crawl(
                 url=url,
-                params=params,
+                **crawl_params,
                 **kwargs,
             )
             return crawl_response
@@ -118,7 +120,9 @@ class Firecrawl:
             RuntimeError: If the scrape process fails.
         """
         try:
-            return self.app.scrape_url(url=url, params=params)
+            # firecrawl-py v1.0+ accepts parameters as keyword arguments directly
+            scrape_params = params or {}
+            return self.app.scrape(url=url, **scrape_params)
         except Exception as e:
             raise RuntimeError(f"Failed to scrape the URL: {e}")
 
@@ -139,14 +143,16 @@ class Firecrawl:
             RuntimeError: If the scrape process fails.
         """
         try:
-            data = self.app.scrape_url(
+            # firecrawl-py v1.0+ accepts parameters as keyword arguments
+            data = self.app.scrape(
                 url,
-                {
-                    'formats': ['extract'],
-                    'extract': {'schema': response_format.model_json_schema()},
-                },
+                formats=['extract'],
+                extract={'schema': response_format.model_json_schema()},
             )
-            return data.get("extract", {})
+            # Handle both object and dict response formats
+            if hasattr(data, 'extract'):
+                return data.extract or {}
+            return data.get("extract", {}) if isinstance(data, dict) else {}
         except Exception as e:
             raise RuntimeError(f"Failed to perform structured scrape: {e}")
 
@@ -167,6 +173,8 @@ class Firecrawl:
             RuntimeError: If the mapping process fails.
         """
         try:
-            return self.app.map_url(url=url, params=params)
+            # firecrawl-py v1.0+ accepts parameters as keyword arguments directly
+            map_params = params or {}
+            return self.app.map_url(url=url, **map_params)
         except Exception as e:
             raise RuntimeError(f"Failed to map the site: {e}")
