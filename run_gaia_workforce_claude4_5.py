@@ -1,9 +1,3 @@
-import argparse
-import os
-import json
-import shutil
-from typing import List, Dict, Any, Optional
-
 from camel.toolkits import (
     VideoAnalysisToolkit,
     SearchToolkit,
@@ -25,53 +19,57 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+import os
+import json
+from typing import List, Dict, Any
 from loguru import logger
 from utils import OwlWorkforceChatAgent, OwlGaiaWorkforce
 from utils.gaia import GAIABenchmark
+import shutil
 
 
 def construct_agent_list() -> List[Dict[str, Any]]:
 
     web_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
+
     document_processing_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
+
     reasoning_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
-    image_analysis_model = ModelFactory.create( 
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+
+    image_analysis_model = ModelFactory.create(
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
+
     audio_reasoning_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
+
     web_agent_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
-    
+
     planning_agent_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_5,
-        model_config_dict={"temperature": 0},
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0}
     )
     
 
@@ -166,27 +164,27 @@ Here are some tips that help you perform web search:
 
 
 def construct_workforce() -> OwlGaiaWorkforce:
-    
+
     coordinator_agent_kwargs = {
         "model": ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
-            model_type=ModelType.GPT_5,
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type=ModelType.CLAUDE_4_SONNET,
             model_config_dict={"temperature": 0},
         )
     }
-    
+
     task_agent_kwargs = {
         "model": ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
-            model_type=ModelType.GPT_5,
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type=ModelType.CLAUDE_4_SONNET,
             model_config_dict={"temperature": 0},
         )
     }
-    
+
     answerer_agent_kwargs = {
         "model": ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
-            model_type=ModelType.GPT_5,
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type=ModelType.CLAUDE_4_SONNET,
             model_config_dict={"temperature": 0},
         )
     }
@@ -209,40 +207,26 @@ def construct_workforce() -> OwlGaiaWorkforce:
     return workforce
 
 
-def evaluate_on_gaia(
-    start_idx: int = 0,
-    end_idx: Optional[int] = None,
-    partition: int = 0
-):
+def evaluate_on_gaia():
+
     LEVEL = "all"  # 1, 2, 3, or "all"
     on = "valid"   # "valid" or "test"
     SAVE_RESULT = True
     MAX_TRIES = 1
 
-    # Include partition number in result file name
-    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_gpt5_p{partition}.json"
-
-    # Calculate test indices based on start and end
-    if end_idx is not None:
-        test_idx = list(range(start_idx, end_idx))
-    elif start_idx > 0:
-        test_idx = list(range(start_idx, 165))  # 165 is total validation set size
-    else:
-        test_idx = None  # None for all tasks
-
-    logger.info(f"Running partition {partition}: tasks {start_idx} to {end_idx if end_idx else 'end'}")
-    logger.info(f"Results will be saved to: {SAVE_RESULT_PATH}")
+    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_claude4sonnet.json"
+    test_idx = [1]  # None for all tasks, or list like [0, 1, 2]
 
     if os.path.exists(f"tmp/"):
         shutil.rmtree(f"tmp/")
-
+    
     benchmark = GAIABenchmark(
         data_dir="data/gaia",
         save_to=SAVE_RESULT_PATH,
     )
-
+    
     workforce = construct_workforce()
-
+    
     result = benchmark.run_workforce_with_retry(
         workforce,
         on=on,
@@ -250,19 +234,13 @@ def evaluate_on_gaia(
         idx=test_idx,
         save_result=SAVE_RESULT,
         max_tries=MAX_TRIES,
-        max_replanning_tries=1
+        max_replanning_tries=2
     )
-
-    logger.success(f"Partition {partition} - Correct: {result['correct']}, Total: {result['total']}")
-    logger.success(f"Partition {partition} - Accuracy: {result['accuracy']}")
+    
+    logger.success(f"Correct: {result['correct']}, Total: {result['total']}")
+    logger.success(f"Accuracy: {result['accuracy']}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run GAIA benchmark evaluation")
-    parser.add_argument("--start-idx", type=int, default=0, help="Starting task index")
-    parser.add_argument("--end-idx", type=int, default=None, help="Ending task index (exclusive)")
-    parser.add_argument("--partition", type=int, default=0, help="Partition number for result file naming")
-    args = parser.parse_args()
-
-    evaluate_on_gaia(args.start_idx, args.end_idx, args.partition)
+    evaluate_on_gaia()
 

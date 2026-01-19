@@ -42,6 +42,7 @@ class ModelType(UnifiedModelType, Enum):
     GPT_4_1 = "gpt-4.1-2025-04-14"
     GPT_4_1_MINI = "gpt-4.1-mini-2025-04-14"
     GPT_4_1_NANO = "gpt-4.1-nano-2025-04-14"
+    GPT_5 = "gpt-5"
     O4_MINI = "o4-mini"
     O3 = "o3"
 
@@ -148,6 +149,7 @@ class ModelType(UnifiedModelType, Enum):
     CLAUDE_3_5_SONNET = "claude-3-5-sonnet-latest"
     CLAUDE_3_5_HAIKU = "claude-3-5-haiku-latest"
     CLAUDE_3_7_SONNET = "claude-3-7-sonnet-latest"
+    CLAUDE_4_SONNET = "claude-sonnet-4-5-20250929"
 
     # Nvidia models
     NVIDIA_NEMOTRON_340B_INSTRUCT = "nvidia/nemotron-4-340b-instruct"
@@ -353,6 +355,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GPT_4_1,
             ModelType.GPT_4_1_MINI,
             ModelType.GPT_4_1_NANO,
+            ModelType.GPT_5,
             ModelType.O4_MINI,
             ModelType.O3,
         }
@@ -420,6 +423,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.CLAUDE_3_5_SONNET,
             ModelType.CLAUDE_3_5_HAIKU,
             ModelType.CLAUDE_3_7_SONNET,
+            ModelType.CLAUDE_4_SONNET,
         }
 
     @property
@@ -892,6 +896,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.CLAUDE_3_5_SONNET,
             ModelType.CLAUDE_3_5_HAIKU,
             ModelType.CLAUDE_3_7_SONNET,
+            ModelType.CLAUDE_4_SONNET,
             ModelType.YI_MEDIUM_200K,
             ModelType.AWS_CLAUDE_3_5_SONNET,
             ModelType.AWS_CLAUDE_3_HAIKU,
@@ -924,6 +929,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GPT_4_1,
             ModelType.GPT_4_1_MINI,
             ModelType.GPT_4_1_NANO,
+            ModelType.GPT_5,
         }:
             return 1_048_576
         elif self in {
