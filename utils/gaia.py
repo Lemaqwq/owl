@@ -66,7 +66,13 @@ class GAIABenchmark(BaseBenchmark):
     def _check_task_completed(self, task_id: str) -> bool:
         for data in self._results:
             if data["task_id"] == task_id:
-                return True
+                # Only consider task completed if model_answer is not null
+                if data.get("model_answer") is not None:
+                    return True
+                else:
+                    # Remove the incomplete result so it can be retried
+                    self._results.remove(data)
+                    return False
         return False 
 
 

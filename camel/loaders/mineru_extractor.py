@@ -96,7 +96,14 @@ class MinerU:
             Dict: Task identifier for tracking extraction progress.
         """
         endpoint = f"{self._api_url}/extract/task"
-        payload = {"url": url}
+        payload = {
+            "url": url,
+            "is_ocr": self.is_ocr,
+            "enable_formula": self.enable_formula,
+            "enable_table": self.enable_table,
+            "layout_model": self.layout_model,
+            "language": self.language,
+        }
 
         try:
             response = requests.post(
@@ -105,7 +112,16 @@ class MinerU:
                 json=payload,
             )
             response.raise_for_status()
-            return response.json()["data"]
+            result = response.json()
+            # Handle different response formats
+            if "data" in result:
+                return result["data"]
+            elif "task_id" in result:
+                return result
+            else:
+                raise RuntimeError(f"Unexpected API response format: {result}")
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"Failed to extract URL (HTTP {e.response.status_code}): {e.response.text}")
         except Exception as e:
             raise RuntimeError(f"Failed to extract URL: {e}")
 

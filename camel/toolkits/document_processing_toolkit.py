@@ -1,4 +1,4 @@
-from camel.loaders.chunkr_reader import ChunkrReader
+from camel.loaders.mineru_extractor import MinerU
 from camel.toolkits.base import BaseToolkit
 from camel.toolkits.function_tool import FunctionTool
 from camel.toolkits import ImageAnalysisToolkit, AudioAnalysisToolkit, VideoAnalysisToolkit, ExcelToolkit
@@ -8,7 +8,6 @@ from camel.types import ModelType, ModelPlatformType
 from camel.models import OpenAIModel, DeepSeekModel
 from camel.agents import ChatAgent
 from docx2markdown._docx_to_markdown import docx_to_markdown
-from chunkr_ai import Chunkr
 import openai
 import requests
 import mimetypes
@@ -158,14 +157,13 @@ class DocumentProcessingToolkit(BaseToolkit):
                     return False, f"Error occurred while processing pptx: {e}"
             
             try:
-                result = asyncio.run(self._extract_content_with_chunkr(document_path))
-                # raise ValueError("Chunkr is not available.")
-                logger.debug(f"The extracted text from chunkr is: {result}")
+                result = self._extract_content_with_mineru(document_path)
+                logger.debug(f"The extracted text from MinerU is: {result}")
                 result_filtered = self._post_process_result(result, query)
                 return True, result_filtered
 
             except Exception as e:
-                logger.warning(f"Error occurred while using chunkr to process document: {e}")
+                logger.warning(f"Error occurred while using MinerU to process document: {e}")
                 if document_path.endswith(".pdf"):
                     # try using pypdf to extract text from pdf
                     try:
@@ -303,37 +301,69 @@ Query:
     
 
     @retry(requests.RequestException)
-    async def _extract_content_with_chunkr(self, document_path: str, output_format: Literal['json', 'markdown'] = 'markdown') -> str:
-        
-        chunkr = Chunkr(api_key=os.getenv("CHUNKR_API_KEY"))
-        
-        result = await chunkr.upload(document_path)
-        
-        # result = chunkr.upload(document_path)
+    def _extract_content_with_mineru(self, document_path: str) -> str:
+        """Extract content from document using MinerU API.
 
-        if result.status == "Failed":
-            logger.error(f"Error while processing document {document_path}: {result.message}")
-            return f"Error while processing document: {result.message}"
-        
-        # extract document name
-        document_name = os.path.basename(document_path)
-        output_file_path: str
+        Args:
+            document_path: Path to the document (URL or local file path)
 
-        if output_format == 'json':
-            output_file_path = f"{document_name}.json"
-            result.json(output_file_path)
+        Returns:
+            Extracted text content from the document
+        """
+        api_key = os.getenv("MINERU_API_KEY")
+        if not api_key:
+            raise ValueError("MINERU_API_KEY environment variable is not set")
 
-        elif output_format == 'markdown':
-            output_file_path = f"{document_name}.md"
-            result.markdown(output_file_path)
+        mineru = MinerU(
+            api_key=api_key,
+            is_ocr=True,
+            enable_formula=True,
+            enable_table=True,
+        )
 
+        # Check if it's a URL or local file
+        parsed_url = urlparse(document_path)
+        is_url = all([parsed_url.scheme, parsed_url.netloc])
+
+        if not is_url:
+            # For local files, we need to upload first
+            # MinerU API may not support direct file upload, so we raise an error
+            # and let the fallback methods handle it
+            raise ValueError("MinerU API requires a URL. Local file processing will use fallback methods.")
+
+        # For URLs, use extract_url directly
+        logger.debug(f"Extracting content from URL using MinerU: {document_path}")
+        response = mineru.extract_url(document_path)
+        task_id = response.get('task_id')
+
+        if not task_id:
+            raise RuntimeError(f"MinerU API did not return a task_id. Response: {response}")
+
+        logger.debug(f"MinerU task created: {task_id}")
+
+        # Wait for the task to complete
+        result = mineru.wait_for_completion(task_id, timeout=300)
+        logger.debug(f"MinerU task completed. State: {result.get('state')}")
+
+        # Extract the markdown content from the result
+        if result.get('state') == 'done':
+            # Get the full_md_content or md_content
+            md_content = result.get('full_md_content') or result.get('md_content', '')
+            if md_content:
+                return md_content
+
+            # If no markdown content, try to get from download URL
+            md_url = result.get('full_md_url') or result.get('md_url')
+            if md_url:
+                logger.debug(f"Downloading markdown from URL: {md_url}")
+                md_response = requests.get(md_url)
+                md_response.raise_for_status()
+                return md_response.text
+
+            logger.warning(f"Document processed but no content extracted. Result keys: {result.keys()}")
+            return f"Document processed but no content extracted. Result: {result}"
         else:
-            return "Invalid output format."
-        
-        with open(output_file_path, "r", encoding="utf-8") as f:
-            extracted_text = f.read()
-        f.close()
-        return extracted_text
+            raise RuntimeError(f"MinerU task failed: {result.get('err_msg', 'Unknown error')}")
     
     
     @retry(requests.RequestException, delay=60, backoff=2, max_delay=120)
