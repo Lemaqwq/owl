@@ -133,10 +133,7 @@ class OpenAITokenCounter(BaseTokenCounter):
             self.tokens_per_message = 4
             # If there's a name, the role is omitted
             self.tokens_per_name = -1
-        elif ("gpt-3.5-turbo" in self.model) or ("gpt-4" in self.model):
-            self.tokens_per_message = 3
-            self.tokens_per_name = 1
-        elif self.model == "gpt-5":
+        elif ("gpt-3.5-turbo" in self.model) or ("gpt-4" in self.model) or ("gpt-5" in self.model):
             self.tokens_per_message = 3
             self.tokens_per_name = 1
         elif (
@@ -145,6 +142,10 @@ class OpenAITokenCounter(BaseTokenCounter):
             or ("o4" in self.model)
         ):
             self.tokens_per_message = 2
+            self.tokens_per_name = 1
+        elif "gemini" in self.model:
+            # Gemini models via OpenAI-compatible endpoint
+            self.tokens_per_message = 3
             self.tokens_per_name = 1
         else:
             # flake8: noqa :E501

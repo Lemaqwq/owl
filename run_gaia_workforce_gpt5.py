@@ -1,5 +1,6 @@
 import argparse
 import os
+import json
 import shutil
 from typing import List, Dict, Any, Optional
 
@@ -14,7 +15,12 @@ from camel.toolkits import (
     ExcelToolkit,
     FunctionTool
 )
-from camel.types import ModelType
+from camel.models import ModelFactory
+from camel.types import(
+    ModelPlatformType,
+    ModelType
+)
+from camel.tasks import Task
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -22,44 +28,44 @@ load_dotenv(override=True)
 from loguru import logger
 from utils import OwlWorkforceChatAgent, OwlGaiaWorkforce
 from utils.gaia import GAIABenchmark
-from utils.logging_model import create_logging_openai_model
+from utils.logging_model import LoggingOpenAIModel, create_logging_model
 from api.llm_api_utils import init_simple_logger
 
 
 def construct_agent_list() -> List[Dict[str, Any]]:
 
-    web_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    web_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    document_processing_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    document_processing_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    reasoning_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    reasoning_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    image_analysis_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    image_analysis_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    audio_reasoning_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    audio_reasoning_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    web_agent_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    web_agent_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
 
-    planning_agent_model = create_logging_openai_model(
-        model_type=ModelType.GPT_5_MINI,
+    planning_agent_model = create_logging_model(
+        model_type=ModelType.GPT_5,
         model_config_dict={"temperature": 0},
     )
     
@@ -157,22 +163,22 @@ Here are some tips that help you perform web search:
 def construct_workforce() -> OwlGaiaWorkforce:
 
     coordinator_agent_kwargs = {
-        "model": create_logging_openai_model(
-            model_type=ModelType.GPT_5_MINI,
+        "model": create_logging_model(
+            model_type=ModelType.GPT_5,
             model_config_dict={"temperature": 0},
         )
     }
 
     task_agent_kwargs = {
-        "model": create_logging_openai_model(
-            model_type=ModelType.GPT_5_MINI,
+        "model": create_logging_model(
+            model_type=ModelType.GPT_5,
             model_config_dict={"temperature": 0},
         )
     }
 
     answerer_agent_kwargs = {
-        "model": create_logging_openai_model(
-            model_type=ModelType.GPT_5_MINI,
+        "model": create_logging_model(
+            model_type=ModelType.GPT_5,
             model_config_dict={"temperature": 0},
         )
     }
@@ -209,7 +215,7 @@ def evaluate_on_gaia(
     init_simple_logger(log_dir=f"./api_logs/partition_{partition}")
 
     # Include partition number in result file name
-    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_gpt5mini_p{partition}.json"
+    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_gpt5_p{partition}.json"
 
     # Calculate test indices based on start and end
     if end_idx is not None:
@@ -254,3 +260,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     evaluate_on_gaia(args.start_idx, args.end_idx, args.partition)
+

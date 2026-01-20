@@ -124,8 +124,9 @@ class GeminiModel(OpenAICompatibleModel):
             "response_format", None
         )
         messages = self._process_messages(messages)
-        if response_format:
-            return self._request_parse(messages, response_format)
+        # Only use _request_parse for Pydantic models, not dict response_format
+        if response_format and isinstance(response_format, type) and issubclass(response_format, BaseModel):
+            return self._request_parse(messages, response_format, tools)
         else:
             return self._request_chat_completion(messages, tools)
 
@@ -154,8 +155,9 @@ class GeminiModel(OpenAICompatibleModel):
             "response_format", None
         )
         messages = self._process_messages(messages)
-        if response_format:
-            return await self._arequest_parse(messages, response_format)
+        # Only use _arequest_parse for Pydantic models, not dict response_format
+        if response_format and isinstance(response_format, type) and issubclass(response_format, BaseModel):
+            return await self._arequest_parse(messages, response_format, tools)
         else:
             return await self._arequest_chat_completion(messages, tools)
 
@@ -238,6 +240,140 @@ class GeminiModel(OpenAICompatibleModel):
             model=self.model_type,
             **request_config,
         )
+
+    def _request_parse(
+        self,
+        messages: List[OpenAIMessage],
+        response_format: Type[BaseModel],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> ChatCompletion:
+        r"""Gemini-compatible structured output.
+
+        Removes additionalProperties from JSON schema before calling API,
+        similar to how _request_chat_completion removes strict/anyOf from tools.
+        """
+        import copy
+
+        # Get JSON schema and remove additionalProperties (Gemini doesn't support it)
+        schema = response_format.model_json_schema()
+        self._remove_additional_properties(schema)
+
+        # Build response_format with cleaned schema
+        cleaned_response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": response_format.__name__,
+                "schema": schema,
+            }
+        }
+
+        request_config = copy.deepcopy(self.model_config_dict)
+        request_config["response_format"] = cleaned_response_format
+        request_config.pop("stream", None)
+
+        if tools is not None:
+            # Also clean tools like _request_chat_completion does
+            for tool in tools:
+                function_dict = tool.get('function', {})
+                function_dict.pop("strict", None)
+                if 'parameters' in function_dict:
+                    self._remove_additional_properties(function_dict['parameters'])
+            request_config["tools"] = tools
+
+        response = self._client.chat.completions.create(
+            messages=messages,
+            model=self.model_type,
+            **request_config,
+        )
+
+        # Strip markdown code blocks if present
+        self._strip_markdown_json(response)
+
+        return response
+
+    async def _arequest_parse(
+        self,
+        messages: List[OpenAIMessage],
+        response_format: Type[BaseModel],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> ChatCompletion:
+        r"""Async Gemini-compatible structured output.
+
+        Removes additionalProperties from JSON schema before calling API,
+        similar to how _arequest_chat_completion removes strict/anyOf from tools.
+        """
+        import copy
+
+        # Get JSON schema and remove additionalProperties (Gemini doesn't support it)
+        schema = response_format.model_json_schema()
+        self._remove_additional_properties(schema)
+
+        # Build response_format with cleaned schema
+        cleaned_response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": response_format.__name__,
+                "schema": schema,
+            }
+        }
+
+        request_config = copy.deepcopy(self.model_config_dict)
+        request_config["response_format"] = cleaned_response_format
+        request_config.pop("stream", None)
+
+        if tools is not None:
+            # Also clean tools like _arequest_chat_completion does
+            for tool in tools:
+                function_dict = tool.get('function', {})
+                function_dict.pop("strict", None)
+                if 'parameters' in function_dict:
+                    self._remove_additional_properties(function_dict['parameters'])
+            request_config["tools"] = tools
+
+        response = await self._async_client.chat.completions.create(
+            messages=messages,
+            model=self.model_type,
+            **request_config,
+        )
+
+        # Strip markdown code blocks if present
+        self._strip_markdown_json(response)
+
+        return response
+
+    def _strip_markdown_json(self, response: ChatCompletion) -> None:
+        r"""Strip markdown code blocks from response content.
+
+        Gemini often wraps JSON responses in ```json ... ``` blocks,
+        which causes JSON parsing to fail.
+        """
+        import re
+
+        if not response.choices:
+            return
+
+        for choice in response.choices:
+            if choice.message and choice.message.content:
+                content = choice.message.content
+                # Check if content is wrapped in markdown code blocks
+                if content.strip().startswith("```"):
+                    match = re.search(
+                        r'```(?:json)?\s*\n?(.*?)\n?```',
+                        content,
+                        re.DOTALL
+                    )
+                    if match:
+                        choice.message.content = match.group(1).strip()
+
+    def _remove_additional_properties(self, schema: dict) -> None:
+        r"""Recursively remove additionalProperties from JSON schema."""
+        if isinstance(schema, dict):
+            schema.pop("additionalProperties", None)
+            for value in schema.values():
+                self._remove_additional_properties(value)
+        elif isinstance(schema, list):
+            for item in schema:
+                self._remove_additional_properties(item)
 
     def check_model_config(self):
         r"""Check whether the model configuration contains any

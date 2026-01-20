@@ -43,6 +43,7 @@ class ModelType(UnifiedModelType, Enum):
     GPT_4_1_MINI = "gpt-4.1-mini-2025-04-14"
     GPT_4_1_NANO = "gpt-4.1-nano-2025-04-14"
     GPT_5 = "gpt-5"
+    GPT_5_MINI = "gpt-5-mini"
     O4_MINI = "o4-mini"
     O3 = "o3"
 
@@ -173,6 +174,7 @@ class ModelType(UnifiedModelType, Enum):
     GEMINI_2_0_FLASH_LITE_PREVIEW = "gemini-2.0-flash-lite-preview-02-05"
     GEMINI_1_5_FLASH = "gemini-1.5-flash"
     GEMINI_1_5_PRO = "gemini-1.5-pro"
+    GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview"
 
     # Mistral AI models
     MISTRAL_3B = "ministral-3b-latest"
@@ -356,6 +358,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GPT_4_1_MINI,
             ModelType.GPT_4_1_NANO,
             ModelType.GPT_5,
+            ModelType.GPT_5_MINI,
             ModelType.O4_MINI,
             ModelType.O3,
         }
@@ -532,6 +535,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GEMINI_2_0_FLASH_THINKING,
             ModelType.GEMINI_2_0_PRO_EXP,
             ModelType.GEMINI_2_0_FLASH_LITE_PREVIEW,
+            ModelType.GEMINI_3_FLASH_PREVIEW,
         }
 
     @property
@@ -923,6 +927,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GEMINI_2_0_FLASH_THINKING,
             ModelType.GEMINI_2_0_FLASH_LITE_PREVIEW,
             ModelType.GEMINI_2_0_PRO_EXP,  # Not given in doc, assume the same
+            ModelType.GEMINI_3_FLASH_PREVIEW,  # OpenAI-compatible but with 1M context
             ModelType.GLM_4_LONG,
             ModelType.TOGETHER_LLAMA_4_MAVERICK,
             ModelType.OPENROUTER_LLAMA_4_MAVERICK,
@@ -930,6 +935,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GPT_4_1_MINI,
             ModelType.GPT_4_1_NANO,
             ModelType.GPT_5,
+            ModelType.GPT_5_MINI,
         }:
             return 1_048_576
         elif self in {

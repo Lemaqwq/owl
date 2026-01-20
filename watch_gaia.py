@@ -11,18 +11,17 @@ import subprocess
 import time
 from typing import Dict, List, Set
 
-# Partition configuration
+# Partition configuration (5 nodes, 33 tasks each)
 PARTITIONS = {
-    0: {"start": 0, "end": 28, "size": 28},
-    1: {"start": 28, "end": 56, "size": 28},
-    2: {"start": 56, "end": 84, "size": 28},
-    3: {"start": 84, "end": 112, "size": 28},
-    4: {"start": 112, "end": 140, "size": 28},
-    5: {"start": 140, "end": 165, "size": 25},
+    0: {"start": 0, "end": 33, "size": 33},
+    1: {"start": 33, "end": 66, "size": 33},
+    2: {"start": 66, "end": 99, "size": 33},
+    3: {"start": 99, "end": 132, "size": 33},
+    4: {"start": 132, "end": 165, "size": 33},
 }
 
 RESULT_DIR = "results/workforce"
-RESULT_FILE_PATTERN = "workforce_all_pass1_gpt5_p{}.json"
+RESULT_FILE_PATTERN = "workforce_all_pass1_gpt5mini_p{}.json"
 MAX_WORKERS = 5
 CHECK_INTERVAL = 60  # seconds
 
