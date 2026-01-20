@@ -10,8 +10,8 @@ import os
 from typing import Dict, List, Any
 
 RESULT_DIR = "results/workforce"
-RESULT_PATTERN = "workforce_all_pass1_gpt5_p{}.json"
-NUM_PARTITIONS = 6
+RESULT_PATTERN = "workforce_all_pass1_gpt5mini_p{}.json"
+NUM_PARTITIONS = 5
 
 
 def load_partition_results(partition: int) -> List[Dict[str, Any]]:
