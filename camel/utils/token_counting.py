@@ -283,22 +283,76 @@ class OpenAITokenCounter(BaseTokenCounter):
 
 
 class AnthropicTokenCounter(BaseTokenCounter):
-    @dependencies_required('anthropic')
-    def __init__(self, model: str):
+    # Overhead tokens for Claude message format (approximate)
+    TOKENS_PER_MESSAGE = 3
+    TOKENS_PER_REPLY = 3
+
+    def __init__(self, model: str, use_tiktoken: bool = True):
         r"""Constructor for the token counter for Anthropic models.
 
         Args:
             model (str): The name of the Anthropic model being used.
+            use_tiktoken (bool): If True (default), use tiktoken for offline
+                token counting (~95% accurate). If False, use Anthropic API
+                for exact counts (requires API call).
         """
-        from anthropic import Anthropic
+        import tiktoken
 
-        self.client = Anthropic()
         self.model = model
+        self.use_tiktoken = use_tiktoken
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
-    @dependencies_required('anthropic')
+        if not use_tiktoken:
+            from anthropic import Anthropic
+
+            self.client = Anthropic()
+
     def count_tokens_from_messages(self, messages: List[OpenAIMessage]) -> int:
-        r"""Count number of tokens in the provided message list using
-        loaded tokenizer specific for this type of model.
+        r"""Count number of tokens in the provided message list.
+
+        Args:
+            messages (List[OpenAIMessage]): Message list with the chat history
+                in OpenAI API format.
+
+        Returns:
+            int: Number of tokens in the messages.
+        """
+        if self.use_tiktoken:
+            return self._count_tokens_tiktoken(messages)
+        else:
+            return self._count_tokens_api(messages)
+
+    def _count_tokens_tiktoken(self, messages: List[OpenAIMessage]) -> int:
+        r"""Offline token counting using tiktoken (approximate).
+
+        Args:
+            messages (List[OpenAIMessage]): Message list with the chat history
+                in OpenAI API format.
+
+        Returns:
+            int: Number of tokens in the messages.
+        """
+        num_tokens = 0
+        for message in messages:
+            num_tokens += self.TOKENS_PER_MESSAGE
+            for _, value in message.items():
+                if isinstance(value, str):
+                    num_tokens += len(
+                        self.encoding.encode(value, disallowed_special=())
+                    )
+                elif isinstance(value, list):
+                    for item in value:
+                        if item.get("type") == "text":
+                            num_tokens += len(
+                                self.encoding.encode(
+                                    item["text"], disallowed_special=()
+                                )
+                            )
+        num_tokens += self.TOKENS_PER_REPLY
+        return num_tokens
+
+    def _count_tokens_api(self, messages: List[OpenAIMessage]) -> int:
+        r"""Original API-based token counting (exact).
 
         Args:
             messages (List[OpenAIMessage]): Message list with the chat history
@@ -328,10 +382,15 @@ class AnthropicTokenCounter(BaseTokenCounter):
 
         Returns:
             List[int]: List of token IDs.
+
+        Raises:
+            NotImplementedError: When use_tiktoken=False (API mode).
         """
+        if self.use_tiktoken:
+            return self.encoding.encode(text, disallowed_special=())
         raise NotImplementedError(
             "The Anthropic API does not provide direct access to token IDs. "
-            "Use count_tokens_from_messages() for token counting instead."
+            "Use use_tiktoken=True for encoding support."
         )
 
     def decode(self, token_ids: List[int]) -> str:
@@ -342,9 +401,15 @@ class AnthropicTokenCounter(BaseTokenCounter):
 
         Returns:
             str: Decoded text.
+
+        Raises:
+            NotImplementedError: When use_tiktoken=False (API mode).
         """
+        if self.use_tiktoken:
+            return self.encoding.decode(token_ids)
         raise NotImplementedError(
-            "The Anthropic API does not provide functionality to decode token IDs."
+            "The Anthropic API does not provide functionality to decode token IDs. "
+            "Use use_tiktoken=True for decoding support."
         )
 
 
