@@ -38,7 +38,7 @@ class FileWriteToolkit(BaseToolkit):
 
     def __init__(
         self,
-        output_dir: str = "./",
+        output_dir: str = "tmp/",
         timeout: Optional[float] = None,
         default_encoding: str = "utf-8",
         backup_enabled: bool = True,
@@ -47,7 +47,7 @@ class FileWriteToolkit(BaseToolkit):
 
         Args:
             output_dir (str): The default directory for output files.
-                Defaults to the current working directory.
+                Defaults to "tmp/".
             timeout (Optional[float]): The timeout for the toolkit.
                 (default: :obj: `None`)
             default_encoding (str): Default character encoding for text
