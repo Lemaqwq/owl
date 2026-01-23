@@ -42,9 +42,9 @@ class DocumentProcessingToolkit(BaseToolkit):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         }
 
-        self.cache_dir = "tmp/"
-        if cache_dir:
-            self.cache_dir = cache_dir
+        self.cache_dir = cache_dir or "tmp/"
+        # Ensure cache directory exists
+        os.makedirs(self.cache_dir, exist_ok=True)
     
     @retry((requests.RequestException))
     def extract_document_content(self, document_path: str, query: str = None) -> Tuple[bool, str]:
@@ -135,7 +135,7 @@ class DocumentProcessingToolkit(BaseToolkit):
                     tmp_path = document_path
                 
                 file_name = os.path.basename(tmp_path)
-                md_file_path = f"{file_name}.md"
+                md_file_path = os.path.join(self.cache_dir, f"{file_name}.md")
                 docx_to_markdown(tmp_path, md_file_path)
 
                 # load content of md file
@@ -367,17 +367,42 @@ Query:
     
     
     @retry(requests.RequestException, delay=60, backoff=2, max_delay=120)
-    def _extract_webpage_content_with_html2text(self, url: str) -> str:
+    def _extract_webpage_content_with_html2text(self, url: str, timeout: int = 600) -> str:
+        """Extract webpage content using html2text with timeout.
+
+        Args:
+            url: The URL to extract content from.
+            timeout: Timeout in seconds (default 600 = 10 minutes).
+
+        Returns:
+            Extracted text content, or empty string if timeout/error occurs.
+        """
         import html2text
-        h = html2text.HTML2Text()
-        response = requests.get(url, headers=self.headers)
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+        logger.debug(f"Trying to use html2text to get the text. html2text can sometimes hang, using {timeout}s timeout.")
+
+        response = requests.get(url, headers=self.headers, timeout=60)
         html_content = response.text
-        
-        h.ignore_links = False
-        h.ignore_images = False
-        h.ignore_tables = False
-        extracted_text = h.handle(html_content)
-        return extracted_text
+
+        def process_html():
+            h = html2text.HTML2Text()
+            h.ignore_links = False
+            h.ignore_images = False
+            h.ignore_tables = False
+            return h.handle(html_content)
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(process_html)
+                extracted_text = future.result(timeout=timeout)
+                return extracted_text
+        except FuturesTimeoutError:
+            logger.warning(f"html2text timed out after {timeout}s for URL: {url}")
+            return ""
+        except Exception as e:
+            logger.warning(f"html2text failed with error: {e}")
+            return ""
     
     @retry(requests.RequestException, delay=60, backoff=2, max_delay=120)
     def _extract_webpage_content_with_beautifulsoup(self, url: str) -> str:
