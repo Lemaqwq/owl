@@ -13,6 +13,7 @@
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 
 import json
+import os
 from typing import List, Optional
 
 import requests
@@ -26,10 +27,20 @@ class SemanticScholarToolkit(BaseToolkit):
     API to fetch paper and author data.
     """
 
-    def __init__(self, timeout: Optional[float] = None):
-        r"""Initializes the SemanticScholarToolkit."""
+    def __init__(
+        self, timeout: Optional[float] = None, cache_dir: Optional[str] = None
+    ):
+        r"""Initializes the SemanticScholarToolkit.
+
+        Args:
+            timeout (Optional[float]): The timeout for API requests.
+            cache_dir (Optional[str]): Directory for saving output files.
+                Defaults to "tmp/".
+        """
         super().__init__(timeout=timeout)
         self.base_url = "https://api.semanticscholar.org/graph/v1"
+        self.cache_dir = cache_dir or "tmp/"
+        os.makedirs(self.cache_dir, exist_ok=True)
 
     def fetch_paper_data_title(
         self,
@@ -237,7 +248,8 @@ class SemanticScholarToolkit(BaseToolkit):
             response.raise_for_status()
             papers = response.json()
             if save_to_file:
-                with open('recommended_papers.json', 'w') as output:
+                file_path = os.path.join(self.cache_dir, 'recommended_papers.json')
+                with open(file_path, 'w') as output:
                     json.dump(papers, output)
             return papers
         except requests.exceptions.RequestException as e:
@@ -281,7 +293,8 @@ class SemanticScholarToolkit(BaseToolkit):
             response.raise_for_status()
             response_data = response.json()
             if save_to_file:
-                with open('author_information.json', 'w') as output:
+                file_path = os.path.join(self.cache_dir, 'author_information.json')
+                with open(file_path, 'w') as output:
                     json.dump(response_data, output)
             return response_data
         except requests.exceptions.RequestException as e:

@@ -29,6 +29,17 @@ class DalleToolkit(BaseToolkit):
     DALL-E model.
     """
 
+    def __init__(self, cache_dir: Optional[str] = None):
+        r"""Initializes the DalleToolkit.
+
+        Args:
+            cache_dir (Optional[str]): Directory for saving generated images.
+                Defaults to "tmp/".
+        """
+        super().__init__()
+        self.cache_dir = cache_dir or "tmp/"
+        os.makedirs(self.cache_dir, exist_ok=True)
+
     def base64_to_image(self, base64_string: str) -> Optional[Image.Image]:
         r"""Converts a base64 encoded string into a PIL Image object.
 
@@ -96,19 +107,21 @@ class DalleToolkit(BaseToolkit):
             print(f"An error occurred: {e}")
             return ""
 
-    def get_dalle_img(self, prompt: str, image_dir: str = "img") -> str:
+    def get_dalle_img(self, prompt: str, image_dir: Optional[str] = None) -> str:
         r"""Generate an image using OpenAI's DALL-E model.
             The generated image is saved to the specified directory.
 
         Args:
             prompt (str): The text prompt based on which the image is
                 generated.
-            image_dir (str): The directory to save the generated image.
-                Defaults to 'img'.
+            image_dir (Optional[str]): The directory to save the generated
+                image. Defaults to cache_dir/img.
 
         Returns:
             str: The path to the saved image.
         """
+        if image_dir is None:
+            image_dir = os.path.join(self.cache_dir, "img")
 
         dalle_client = OpenAI()
         response = dalle_client.images.generate(
