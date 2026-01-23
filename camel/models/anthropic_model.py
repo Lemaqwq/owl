@@ -11,18 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+import copy
+import json
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
+
+from pydantic import BaseModel, ValidationError
 
 from camel.configs import ANTHROPIC_API_PARAMS, AnthropicConfig
+from camel.logger import get_logger
+from camel.messages import OpenAIMessage
+from camel.models._utils import try_modify_message_with_format
 from camel.models.openai_compatible_model import OpenAICompatibleModel
-from camel.types import ModelType
+from camel.types import ChatCompletion, ModelType
 from camel.utils import (
     AnthropicTokenCounter,
     BaseTokenCounter,
     api_keys_required,
     dependencies_required,
 )
+
+logger = get_logger(__name__)
 
 
 class AnthropicModel(OpenAICompatibleModel):
@@ -107,3 +116,198 @@ class AnthropicModel(OpenAICompatibleModel):
                     f"Unexpected argument `{param}` is "
                     "input into Anthropic model backend."
                 )
+
+    @staticmethod
+    def _preprocess_messages(
+        messages: List[OpenAIMessage],
+    ) -> List[OpenAIMessage]:
+        r"""Preprocess messages for Anthropic API compatibility.
+
+        Anthropic's API rejects empty content strings in messages. This method
+        fixes assistant messages that have tool_calls but empty content by
+        removing the content field entirely (Anthropic accepts this).
+
+        Args:
+            messages (List[OpenAIMessage]): The messages to preprocess.
+
+        Returns:
+            List[OpenAIMessage]: The preprocessed messages.
+        """
+        processed = []
+        for msg in messages:
+            msg = dict(msg)  # Make a copy
+            # Fix assistant messages with tool_calls but empty content
+            if (
+                msg.get("role") == "assistant"
+                and msg.get("tool_calls")
+                and not msg.get("content")
+            ):
+                # Remove empty content field - Anthropic accepts this
+                msg.pop("content", None)
+            processed.append(msg)
+        return processed
+
+    def _request_chat_completion(
+        self,
+        messages: List[OpenAIMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ):
+        r"""Override to preprocess messages for Anthropic compatibility."""
+        messages = self._preprocess_messages(messages)
+        return super()._request_chat_completion(messages, tools)
+
+    async def _arequest_chat_completion(
+        self,
+        messages: List[OpenAIMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ):
+        r"""Override to preprocess messages for Anthropic compatibility."""
+        messages = self._preprocess_messages(messages)
+        return await super()._arequest_chat_completion(messages, tools)
+
+    def _request_parse(
+        self,
+        messages: List[OpenAIMessage],
+        response_format: Type[BaseModel],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> ChatCompletion:
+        r"""Override for Anthropic: use JSON mode + prompt injection instead
+        of OpenAI's beta.chat.completions.parse which is not supported.
+
+        Args:
+            messages (List[OpenAIMessage]): Message list with the chat history
+                in OpenAI API format.
+            response_format (Type[BaseModel]): The Pydantic model class for
+                the expected response format.
+            tools (Optional[List[Dict[str, Any]]]): The schema of the tools to
+                use for the request.
+
+        Returns:
+            ChatCompletion: The chat completion response.
+        """
+        request_config = copy.deepcopy(self.model_config_dict)
+        # Remove stream since structured response doesn't support it
+        request_config.pop("stream", None)
+        if tools is not None:
+            request_config["tools"] = tools
+
+        # Deep copy messages to avoid modifying the original
+        messages = copy.deepcopy(messages)
+        # Preprocess messages for Anthropic compatibility
+        messages = self._preprocess_messages(messages)
+        # Inject JSON schema into the last user message
+        try_modify_message_with_format(messages[-1], response_format)
+
+        # Use JSON mode instead of beta.parse
+        request_config["response_format"] = {"type": "json_object"}
+
+        response = self._client.chat.completions.create(
+            messages=messages,
+            model=self.model_type,
+            **request_config,
+        )
+
+        # Validate response against Pydantic model
+        if response.choices and response.choices[0].message.content:
+            content = response.choices[0].message.content
+            # Strip markdown code blocks if present (common with Claude)
+            content = self._strip_markdown_code_blocks(content)
+            try:
+                parsed = json.loads(content)
+                # Validate with Pydantic
+                response_format.model_validate(parsed)
+                # Update response content with clean JSON
+                response.choices[0].message.content = content
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error in response: {e}")
+            except ValidationError as e:
+                logger.warning(f"Response validation warning: {e}")
+
+        return response
+
+    async def _arequest_parse(
+        self,
+        messages: List[OpenAIMessage],
+        response_format: Type[BaseModel],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> ChatCompletion:
+        r"""Async version of _request_parse for Anthropic.
+
+        Args:
+            messages (List[OpenAIMessage]): Message list with the chat history
+                in OpenAI API format.
+            response_format (Type[BaseModel]): The Pydantic model class for
+                the expected response format.
+            tools (Optional[List[Dict[str, Any]]]): The schema of the tools to
+                use for the request.
+
+        Returns:
+            ChatCompletion: The chat completion response.
+        """
+        request_config = copy.deepcopy(self.model_config_dict)
+        # Remove stream since structured response doesn't support it
+        request_config.pop("stream", None)
+        if tools is not None:
+            request_config["tools"] = tools
+
+        # Deep copy messages to avoid modifying the original
+        messages = copy.deepcopy(messages)
+        # Preprocess messages for Anthropic compatibility
+        messages = self._preprocess_messages(messages)
+        # Inject JSON schema into the last user message
+        try_modify_message_with_format(messages[-1], response_format)
+
+        # Use JSON mode instead of beta.parse
+        request_config["response_format"] = {"type": "json_object"}
+
+        response = await self._async_client.chat.completions.create(
+            messages=messages,
+            model=self.model_type,
+            **request_config,
+        )
+
+        # Validate response against Pydantic model
+        if response.choices and response.choices[0].message.content:
+            content = response.choices[0].message.content
+            # Strip markdown code blocks if present (common with Claude)
+            content = self._strip_markdown_code_blocks(content)
+            try:
+                parsed = json.loads(content)
+                # Validate with Pydantic
+                response_format.model_validate(parsed)
+                # Update response content with clean JSON
+                response.choices[0].message.content = content
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error in response: {e}")
+            except ValidationError as e:
+                logger.warning(f"Response validation warning: {e}")
+
+        return response
+
+    @staticmethod
+    def _strip_markdown_code_blocks(content: str) -> str:
+        r"""Strip markdown code blocks from content if present.
+
+        Claude models sometimes wrap JSON in markdown code blocks like:
+        ```json
+        {...}
+        ```
+
+        Args:
+            content (str): The content to process.
+
+        Returns:
+            str: The content with markdown code blocks removed.
+        """
+        content = content.strip()
+        # Check for ```json or ``` at the start
+        if content.startswith("```"):
+            lines = content.split("\n")
+            # Remove first line (```json or ```)
+            if lines:
+                lines = lines[1:]
+            # Remove last line if it's ```
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        return content

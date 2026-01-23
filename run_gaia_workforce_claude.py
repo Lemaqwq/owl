@@ -31,26 +31,26 @@ import shutil
 def construct_agent_list() -> List[Dict[str, Any]]:
 
     web_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_4O,
+        model_platform=ModelPlatformType.ANTHROPIC,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
     document_processing_model = ModelFactory.create(
         model_platform=ModelPlatformType.ANTHROPIC,
-        model_type=ModelType.CLAUDE_3_7_SONNET,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
     reasoning_model = ModelFactory.create(
         model_platform=ModelPlatformType.ANTHROPIC,
-        model_type=ModelType.CLAUDE_3_7_SONNET,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
     image_analysis_model = ModelFactory.create( 
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.GPT_4O,
+        model_platform=ModelPlatformType.ANTHROPIC,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
@@ -62,13 +62,13 @@ def construct_agent_list() -> List[Dict[str, Any]]:
     
     web_agent_model = ModelFactory.create(
         model_platform=ModelPlatformType.ANTHROPIC,
-        model_type=ModelType.CLAUDE_3_7_SONNET,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
     planning_agent_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.O3_MINI,
+        model_platform=ModelPlatformType.ANTHROPIC,
+        model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
     
@@ -173,7 +173,7 @@ def construct_workforce() -> OwlGaiaWorkforce:
     task_agent_kwargs = {
         "model": ModelFactory.create(
             model_platform=ModelPlatformType.ANTHROPIC,
-            model_type=ModelType.CLAUDE_3_7_SONNET,
+            model_type=ModelType.CLAUDE_4_SONNET,
             model_config_dict={"temperature": 0},
         )
     }
@@ -212,7 +212,7 @@ def evaluate_on_gaia():
     MAX_TRIES = 1
     
     SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_claude.json"
-    test_idx = [0, 1, 2]
+    test_idx = [0]
 
     if os.path.exists(f"tmp/"):
         shutil.rmtree(f"tmp/")
@@ -231,7 +231,7 @@ def evaluate_on_gaia():
         idx=test_idx,
         save_result=SAVE_RESULT,
         max_tries=MAX_TRIES,
-        max_replanning_tries=2
+        max_replanning_tries=1
     )
     
     logger.success(f"Correct: {result['correct']}, Total: {result['total']}")
