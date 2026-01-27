@@ -10,7 +10,7 @@ import os
 from typing import Dict, List, Any
 
 RESULT_DIR = "results/workforce"
-RESULT_PATTERN = "workforce_all_pass1_gpt5mini_p{}.json"
+RESULT_PATTERN = "workforce_all_pass1_claude_p{}.json"
 NUM_PARTITIONS = 5
 
 

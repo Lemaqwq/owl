@@ -12,10 +12,10 @@ WORKDIR="/Users/lihengchen/Github/owl"
 ENV="owl-gaia"
 
 # tmux new-session -d -s gaia0 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 0 --end-idx 33 --partition 0'"
-tmux new-session -d -s gaia1 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 33 --end-idx 66 --partition 1'"
+# tmux new-session -d -s gaia1 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 33 --end-idx 66 --partition 1'"
 # tmux new-session -d -s gaia2 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 66 --end-idx 99 --partition 2'"
-# tmux new-session -d -s gaia3 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 99 --end-idx 132 --partition 3'"
-tmux new-session -d -s gaia4 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 132 --end-idx 165 --partition 4'"
+tmux new-session -d -s gaia3 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 99 --end-idx 132 --partition 3'"
+# tmux new-session -d -s gaia4 "bash -c '$CONDA_INIT && conda activate $ENV && cd $WORKDIR && python run_gaia_workforce.py --start-idx 132 --end-idx 165 --partition 4'"
 
 echo "Started 5 parallel GAIA evaluation sessions"
 echo ""

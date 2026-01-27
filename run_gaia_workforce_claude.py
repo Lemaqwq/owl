@@ -1,3 +1,8 @@
+import argparse
+import os
+import shutil
+from typing import List, Dict, Any, Optional
+
 from camel.toolkits import (
     VideoAnalysisToolkit,
     SearchToolkit,
@@ -9,69 +14,55 @@ from camel.toolkits import (
     ExcelToolkit,
     FunctionTool
 )
-from camel.models import ModelFactory
-from camel.types import(
-    ModelPlatformType,
-    ModelType
-)
-from camel.tasks import Task
+from camel.types import ModelType
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-import os
-import json
-from typing import List, Dict, Any
 from loguru import logger
 from utils import OwlWorkforceChatAgent, OwlGaiaWorkforce
 from utils.gaia import GAIABenchmark
-import shutil
+from utils.logging_model import create_logging_anthropic_model, create_logging_openai_model
+from api.llm_api_utils import init_simple_logger
 
 
 def construct_agent_list() -> List[Dict[str, Any]]:
 
-    web_model = ModelFactory.create(
-        model_platform=ModelPlatformType.ANTHROPIC,
+    web_model = create_logging_anthropic_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
-    document_processing_model = ModelFactory.create(
-        model_platform=ModelPlatformType.ANTHROPIC,
+
+    document_processing_model = create_logging_anthropic_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
-    reasoning_model = ModelFactory.create(
-        model_platform=ModelPlatformType.ANTHROPIC,
+
+    reasoning_model = create_logging_anthropic_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
-    image_analysis_model = ModelFactory.create( 
-        model_platform=ModelPlatformType.ANTHROPIC,
+
+    image_analysis_model = create_logging_anthropic_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
-    audio_reasoning_model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI,
-        model_type=ModelType.O3_MINI,
-        model_config_dict={"temperature": 0},
-    )
-    
-    web_agent_model = ModelFactory.create(
-        model_platform=ModelPlatformType.ANTHROPIC,
+
+    audio_reasoning_model = create_logging_openai_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
-    planning_agent_model = ModelFactory.create(
-        model_platform=ModelPlatformType.ANTHROPIC,
+
+    web_agent_model = create_logging_anthropic_model(
         model_type=ModelType.CLAUDE_4_SONNET,
         model_config_dict={"temperature": 0},
     )
-    
+
+    planning_agent_model = create_logging_anthropic_model(
+        model_type=ModelType.CLAUDE_4_SONNET,
+        model_config_dict={"temperature": 0},
+    )
+
 
     search_toolkit = SearchToolkit()
     document_processing_toolkit = DocumentProcessingToolkit(cache_dir="tmp")
@@ -87,11 +78,11 @@ def construct_agent_list() -> List[Dict[str, Any]]:
 """
 You are a helpful assistant that can search the web, extract webpage content, simulate browser actions, and provide relevant information to solve the given task.
 Keep in mind that:
-- Do not be overly confident in your own knowledge. Searching can provide a broader perspective and help validate existing knowledge.  
+- Do not be overly confident in your own knowledge. Searching can provide a broader perspective and help validate existing knowledge.
 - If one way fails to provide an answer, try other ways or methods. The answer does exists.
-- If the search snippet is unhelpful but the URL comes from an authoritative source, try visit the website for more details.  
-- When looking for specific numerical values (e.g., dollar amounts), prioritize reliable sources and avoid relying only on search snippets.  
-- When solving tasks that require web searches, check Wikipedia first before exploring other websites.  
+- If the search snippet is unhelpful but the URL comes from an authoritative source, try visit the website for more details.
+- When looking for specific numerical values (e.g., dollar amounts), prioritize reliable sources and avoid relying only on search snippets.
+- When solving tasks that require web searches, check Wikipedia first before exploring other websites.
 - You can also simulate browser actions to get more information or verify the information you have found.
 - Browser simulation is also helpful for finding target URLs. Browser simulation operations do not necessarily need to find specific answers, but can also help find web page URLs that contain answers (usually difficult to find through simple web searches). You can find the answer to the question by performing subsequent operations on the URL, such as extracting the content of the webpage.
 - Do not solely rely on document tools or browser simulation to find the answer, you should combine document tools and browser simulation to comprehensively process web page information. Some content may need to do browser simulation to get, or some content is rendered by javascript.
@@ -105,13 +96,16 @@ Here are some tips that help you perform web search:
 """,
         model=web_model,
         tools=[
-            FunctionTool(search_toolkit.web_search),
+            FunctionTool(search_toolkit.search_google),
+            FunctionTool(search_toolkit.search_wiki),
+            FunctionTool(search_toolkit.search_wiki_revisions),
+            FunctionTool(search_toolkit.search_archived_webpage),
             FunctionTool(document_processing_toolkit.extract_document_content),
-            FunctionTool(browser_simulator_toolkit.browse_url) ,
+            FunctionTool(browser_simulator_toolkit.browse_url),
             FunctionTool(video_analysis_toolkit.ask_question_about_video),
         ]
     )
-    
+
     document_processing_agent = OwlWorkforceChatAgent(
         "You are a helpful assistant that can process documents and multimodal data, such as images, audio, and video.",
         document_processing_model,
@@ -123,7 +117,7 @@ Here are some tips that help you perform web search:
             FunctionTool(code_runner_toolkit.execute_code),
         ]
     )
-    
+
     reasoning_coding_agent = OwlWorkforceChatAgent(
         "You are a helpful assistant that specializes in reasoning and coding, and can think step by step to solve the task. When necessary, you can write python code to solve the task. If you have written code, do not forget to execute the code. Never generate codes like 'example code', your code should be able to fully solve the task. You can also leverage multiple libraries, such as requests, BeautifulSoup, re, pandas, etc, to solve the task. For processing excel files, you should write codes to process them.",
         reasoning_model,
@@ -135,19 +129,19 @@ Here are some tips that help you perform web search:
     )
 
     agent_list = []
-    
+
     web_agent_dict = {
         "name": "Web Agent",
         "description": "A helpful assistant that can search the web, extract webpage content, simulate browser actions, and retrieve relevant information.",
         "agent": web_agent
     }
-    
+
     document_processing_agent_dict = {
         "name": "Document Processing Agent",
         "description": "A helpful assistant that can process a variety of local and remote documents, including pdf, docx, images, audio, and video, etc.",
         "agent": document_processing_agent
     }
-    
+
     reasoning_coding_agent_dict = {
         "name": "Reasoning Coding Agent",
         "description": "A helpful assistant that specializes in reasoning, coding, and processing excel files. However, it cannot access the internet to search for information. If the task requires python execution, it should be informed to execute the code after writing it.",
@@ -161,31 +155,28 @@ Here are some tips that help you perform web search:
 
 
 def construct_workforce() -> OwlGaiaWorkforce:
-    
+
     coordinator_agent_kwargs = {
-        "model": ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
+        "model": create_logging_openai_model(
             model_type=ModelType.O3_MINI,
             model_config_dict={"temperature": 0},
         )
     }
-    
+
     task_agent_kwargs = {
-        "model": ModelFactory.create(
-            model_platform=ModelPlatformType.ANTHROPIC,
+        "model": create_logging_anthropic_model(
             model_type=ModelType.CLAUDE_4_SONNET,
             model_config_dict={"temperature": 0},
         )
     }
-    
+
     answerer_agent_kwargs = {
-        "model": ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
+        "model": create_logging_openai_model(
             model_type=ModelType.GPT_4O,
             model_config_dict={"temperature": 0},
         )
     }
-    
+
     workforce = OwlGaiaWorkforce(
         "Gaia Workforce",
         task_agent_kwargs=task_agent_kwargs,
@@ -194,7 +185,7 @@ def construct_workforce() -> OwlGaiaWorkforce:
     )
 
     agent_list = construct_agent_list()
-    
+
     for agent_dict in agent_list:
         workforce.add_single_agent_worker(
             agent_dict["description"],
@@ -204,26 +195,43 @@ def construct_workforce() -> OwlGaiaWorkforce:
     return workforce
 
 
-def evaluate_on_gaia():
-    
-    LEVEL = 1
-    on="valid"
+def evaluate_on_gaia(
+    start_idx: int = 0,
+    end_idx: Optional[int] = None,
+    partition: int = 0
+):
+    LEVEL = "all"  # 1, 2, 3, or "all"
+    on = "valid"   # "valid" or "test"
     SAVE_RESULT = True
     MAX_TRIES = 1
-    
-    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_claude.json"
-    test_idx = [0]
+
+    # Initialize API logger for tracking LLM usage
+    init_simple_logger(log_dir=f"./api_logs/claude_partition_{partition}")
+
+    # Include partition number in result file name
+    SAVE_RESULT_PATH = f"results/workforce/workforce_{LEVEL}_pass{MAX_TRIES}_claude_p{partition}.json"
+
+    # Calculate test indices based on start and end
+    if end_idx is not None:
+        test_idx = list(range(start_idx, end_idx))
+    elif start_idx > 0:
+        test_idx = list(range(start_idx, 165))  # 165 is total validation set size
+    else:
+        test_idx = None  # None for all tasks
+
+    logger.info(f"Running partition {partition}: tasks {start_idx} to {end_idx if end_idx else 'end'}")
+    logger.info(f"Results will be saved to: {SAVE_RESULT_PATH}")
 
     if os.path.exists(f"tmp/"):
         shutil.rmtree(f"tmp/")
-    
+
     benchmark = GAIABenchmark(
         data_dir="data/gaia",
         save_to=SAVE_RESULT_PATH,
     )
-    
+
     workforce = construct_workforce()
-    
+
     result = benchmark.run_workforce_with_retry(
         workforce,
         on=on,
@@ -233,11 +241,16 @@ def evaluate_on_gaia():
         max_tries=MAX_TRIES,
         max_replanning_tries=1
     )
-    
-    logger.success(f"Correct: {result['correct']}, Total: {result['total']}")
-    logger.success(f"Accuracy: {result['accuracy']}")
+
+    logger.success(f"Partition {partition} - Correct: {result['correct']}, Total: {result['total']}")
+    logger.success(f"Partition {partition} - Accuracy: {result['accuracy']}")
 
 
 if __name__ == "__main__":
-    evaluate_on_gaia()
+    parser = argparse.ArgumentParser(description="Run GAIA benchmark evaluation with Claude models")
+    parser.add_argument("--start-idx", type=int, default=0, help="Starting task index")
+    parser.add_argument("--end-idx", type=int, default=None, help="Ending task index (exclusive)")
+    parser.add_argument("--partition", type=int, default=0, help="Partition number for result file naming")
+    args = parser.parse_args()
 
+    evaluate_on_gaia(args.start_idx, args.end_idx, args.partition)
